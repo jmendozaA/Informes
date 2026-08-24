@@ -6,7 +6,7 @@ import plotly.express as px
 st.set_page_config(page_title="Reporte de Sedes", layout="wide")
 
 st.title("📊 Reporte del proceso de Admisión Docente 2026")
-st.markdown("El presente reporte muestra los datos del proceso de admisión de cuanto a las clases participativas desarrolladas y monitoreadas en la gestión 2026-2")
+st.markdown("El presente reporte muestra los datos del proceso de admisión de cuanto a las clases participativas desarrolladas y monitoreadas en la gestión 2026-2 (Actualizado al 21 de Agosto del 2026)")
 
 # Función para cargar y preparar los datos
 @st.cache_data
@@ -76,7 +76,7 @@ with kpi1:
 with kpi2:
     st.markdown(f"""
         <div class="tarjeta-kpi">
-            <div class="kpi-titulo">Puntaje Promedio Clases Participativas</div>
+            <div class="kpi-titulo">Puntaje Clases Participativas</div>
             <div class="kpi-valor">{promedio_clases_participativas} pts</div>
         </div>
     """, unsafe_allow_html=True)
@@ -301,6 +301,37 @@ with col1:
     # Se elige gráfico de dona (pastel) al ser pocas categorías (proporciones)
     st.plotly_chart(fig_grado, use_container_width=True) 
 
+    # 5. Expander de interpretación para Grado Académico
+    with st.expander("💡 Ver interpretación de Grado Académico"):
+        st.write(f"Detalle de las carreras que cuentan con postulantes de nivel posgrado en la sede **{sede_seleccionada}**:")
+        
+        # 1. Filtramos el dataframe excluyendo explícitamente la palabra 'Licenciatura'
+        df_posgrado = df_sede[~df_sede['Máximo Grado Academico'].str.contains('Licenciatura', case=False, na=False)]
+        
+        # 2. Verificamos si hay datos
+        if df_posgrado.empty:
+            st.write("- *No se registraron postulantes con grado de Maestría, Doctorado o Especialidad en esta sede.*")
+        else:
+            # 3. Obtenemos los grados presentes, eliminando los vacíos (NaN)
+            grados_presentes = df_posgrado['Máximo Grado Academico'].dropna().unique()
+            
+            # 4. Recorremos cada grado y buscamos sus carreras con sus cantidades
+            for grado in sorted(grados_presentes):
+                # Filtramos los datos solo para el grado actual
+                datos_grado = df_posgrado[df_posgrado['Máximo Grado Academico'] == grado]
+                
+                # Contamos cuántas veces aparece cada carrera (Pandas las ordena automáticamente de MAYOR a MENOR)
+                conteos_carreras = datos_grado['Carrera_T'].value_counts()
+                
+                # Creamos una lista manteniendo exactamente el orden numérico de Pandas
+                lista_carreras_formateada = [f"{carrera} ({cantidad})" for carrera, cantidad in conteos_carreras.items()]
+                
+                # Unimos la lista con comas (¡SIN usar la función sorted() aquí!)
+                lista_carreras_txt = ", ".join(lista_carreras_formateada)
+                
+                # Imprimimos el resultado como viñeta
+                st.write(f"- **{grado}**: {lista_carreras_txt}")
+
     # E. Distribución de la puntuación total (Histograma)
     fig_total = px.histogram(
         df_sede, 
@@ -321,7 +352,50 @@ with col1:
 
     # Al igual que PuntajeProm, el histograma muestra la concentración de calificaciones
     st.plotly_chart(fig_total, use_container_width=True)
-    
+
+# 5. Expander de interpretación de Puntuación Total
+    with st.expander("💡 Interpretación"):
+        st.write(f"La puntuación total promedio en esta sede es de **{promedio_puntaje_total_sede} pts**.")
+        
+        # --- 1. Análisis de Reprobados y sus Carreras ---
+        st.markdown("📌 **Análisis de Reprobados (Menor a 60 pts):**")
+        nota_aprobacion = 60
+        df_reprobados = df_sede[df_sede['Puntuacion Total'] < nota_aprobacion]
+        total_reprobados = len(df_reprobados)
+        
+        if total_reprobados > 0:
+            conteo_carreras_reprobados = df_reprobados['Carrera_T'].value_counts()
+            lista_rep = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_carreras_reprobados.items()]
+            texto_reprobados = ", ".join(lista_rep)
+            
+            st.warning(f"Se identificaron **{total_reprobados}** postulante(s) que no alcanzaron la nota mínima de aprobación. Pertenecen a las siguientes carreras: **{texto_reprobados}**.")
+        else:
+            st.success("✔️ En esta sede, no existen postulantes reprobados bajo la puntuación total (todos obtuvieron 60 pts o más).")
+            
+        # --- 2. Rango con Mayor Frecuencia y sus Carreras ---
+        st.markdown("📊 **Concentración Principal de Calificaciones:**")
+        
+        # Validamos que haya suficientes datos para calcular un rango
+        if len(df_sede['Puntuacion Total'].dropna()) > 1:
+            # Dividimos los datos en 10 intervalos iguales (mimando el histograma)
+            rangos = pd.cut(df_sede['Puntuacion Total'], bins=10)
+            
+            # Encontramos cuál es el intervalo que más se repite (la moda)
+            rango_moda = rangos.mode()[0]
+            
+            # Filtramos los datos exactos que cayeron dentro de ese intervalo "ganador"
+            df_rango_frecuente = df_sede[df_sede['Puntuacion Total'].between(rango_moda.left, rango_moda.right)]
+            total_en_rango = len(df_rango_frecuente)
+            
+            # Contamos las carreras dentro de ese rango
+            conteo_carreras_rango = df_rango_frecuente['Carrera_T'].value_counts()
+            lista_ran = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_carreras_rango.items()]
+            texto_rango = ", ".join(lista_ran)
+            
+            st.info(f"La mayor concentración de calificaciones agrupa a **{total_en_rango} postulantes**, quienes obtuvieron notas que oscilan entre **{rango_moda.left:.1f} y {rango_moda.right:.1f} pts**. Las áreas que lograron ubicarse en esta franja mayoritaria son: **{texto_rango}**.")
+        else:
+            st.write("No hay datos suficientes para calcular rangos de frecuencia.")
+
 
 with col2:
     # D. Distribución de las carreras (Gráfico de barras horizontales)
@@ -378,6 +452,63 @@ with col2:
             if acumulado >= 80:
                 break
     
+# F. Rendimiento promedio según Grado Académico (Gráfico de Barras)
+    
+    # 1. Agrupamos los datos por Grado Académico y calculamos el promedio del PuntajeProm
+    df_rendimiento = df_sede.groupby('Máximo Grado Academico')['PuntajeProm'].mean().reset_index()
+    df_rendimiento.columns = ['Grado Académico', 'Puntaje Promedio']
+    
+    # 2. Redondeamos a 2 decimales y ordenamos del mejor al peor promedio
+    df_rendimiento['Puntaje Promedio'] = df_rendimiento['Puntaje Promedio'].round(2)
+    df_rendimiento = df_rendimiento.sort_values('Puntaje Promedio', ascending=False)
+    
+    # 3. Dibujamos el gráfico de barras
+    fig_rendimiento = px.bar(
+        df_rendimiento,
+        x='Grado Académico',
+        y='Puntaje Promedio',
+        text='Puntaje Promedio', # Muestra el número sobre la barra
+        color='Grado Académico',
+        color_discrete_sequence=px.colors.qualitative.Safe, # Paleta de colores profesional
+    )
+
+    fig_rendimiento.update_layout(
+        title={
+            'text': "RENDIMIENTO PROMEDIO<br>POR GRADO ACADÉMICO",
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        xaxis_title="Grado Académico",
+        yaxis_title="Puntaje Promedio (Clases Part.)",
+        showlegend=False # Ocultamos leyenda para que el gráfico sea más ancho
+    )
+
+    st.plotly_chart(fig_rendimiento, use_container_width=True)
+    
+    # 4. Expander de interpretación de rendimiento
+    with st.expander("💡 Ver interpretación de Calidad vs. Título"):
+        if not df_rendimiento.empty:
+            # Extraemos el grado con mejor rendimiento (la primera fila)
+            mejor_grado = df_rendimiento.iloc[0]['Grado Académico']
+            mejor_puntaje = df_rendimiento.iloc[0]['Puntaje Promedio']
+            
+            st.write(f"En la sede **{sede_seleccionada}**, este análisis cruza el perfil profesional con el desempeño real en aula.")
+            st.write(f"Los postulantes con nivel de **{mejor_grado}** demostraron el mejor desempeño pedagógico, obteniendo una calificación promedio de **{mejor_puntaje} pts** en sus clases participativas.")
+            
+            # Condición extra: Si existe Licenciatura, hacemos la comparativa automática
+            if 'Licenciatura' in df_rendimiento['Grado Académico'].values:
+                puntaje_licenciatura = df_rendimiento.loc[df_rendimiento['Grado Académico'] == 'Licenciatura', 'Puntaje Promedio'].values[0]
+                
+                # Evaluamos si el posgrado superó a la licenciatura
+                if mejor_grado != 'Licenciatura':
+                    diferencia = round(mejor_puntaje - puntaje_licenciatura, 2)
+                    st.success(f"📈 **Dato clave:** El grado de {mejor_grado} supera al de Licenciatura por una diferencia de {diferencia} puntos en promedio, lo que sugiere que el nivel de posgrado aporta un valor pedagógico medible en esta sede.")
+                else:
+                    st.warning(f"⚠️ **Dato clave:** Los postulantes con Licenciatura obtuvieron el promedio más alto. Esto indica que exigir niveles de posgrado en esta sede no necesariamente ha garantizado una mejor clase participativa.")
+        else:
+            st.write("No hay datos suficientes para calcular el rendimiento en esta sede.")
+
+
     # C. Distribución del puntaje obtenido en PuntajeProm (Histograma)
     fig_prom = px.histogram(
         df_sede, 
@@ -389,7 +520,7 @@ with col2:
 
     fig_prom.update_layout(
         title={
-            'text': "DISTRIBUCIÓN DEL PUNTAJE OBTENIDO EN LAS CLASES PARTICIPATIVAS",
+            'text': "DISTRIBUCIÓN DEL PUNTAJE OBTENIDO<br>EN LAS CLASES PARTICIPATIVAS",
             'x': 0.5,           # Posición horizontal (50%)
             'xanchor': 'center' # El centro del texto se alinea con la posición x
         }
@@ -397,3 +528,45 @@ with col2:
 
     # Se elige gráfico de dona (pastel) al ser pocas categorías (proporciones)
     st.plotly_chart(fig_prom, use_container_width=True)
+
+# 5. Expander de interpretación para Clases Participativas (PuntajeProm)
+    with st.expander("💡 Interpretación"):
+        st.write(f"El puntaje promedio específico de la práctica docente en esta sede es de **{promedio_clases_participativas_sede} pts** (sobre un máximo de 50).")
+        
+        # --- 1. Rango Principal (Dónde está la mayoría) ---
+        st.markdown("📊 **Tendencia General del Desempeño:**")
+        if len(df_sede['PuntajeProm'].dropna()) > 1:
+            # Dividimos los puntajes en 10 bloques
+            rangos_prom = pd.cut(df_sede['PuntajeProm'], bins=10)
+            rango_moda_prom = rangos_prom.mode()[0]
+            
+            # Filtramos a los que están en el bloque mayoritario
+            df_rango_prom = df_sede[df_sede['PuntajeProm'].between(rango_moda_prom.left, rango_moda_prom.right)]
+            total_rango_prom = len(df_rango_prom)
+            
+            # Extraemos el Top 5 de carreras en este bloque para no saturar el texto
+            conteo_carreras_prom = df_rango_prom['Carrera_T'].value_counts().head(5)
+            lista_ran_prom = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_carreras_prom.items()]
+            texto_rango_prom = ", ".join(lista_ran_prom)
+            
+            st.info(f"El grueso de los postulantes (**{total_rango_prom}** en total) demostró un nivel pedagógico que se agrupa entre los **{rango_moda_prom.left:.1f} y {rango_moda_prom.right:.1f} pts**. Las carreras más representativas con este nivel promedio son: **{texto_rango_prom}**.")
+        
+        # --- 2. Desempeño Sobresaliente (Mayor o igual a 45 pts) ---
+        st.markdown("🌟 **Desempeño Sobresaliente (45 pts o más):**")
+        df_excelencia = df_sede[df_sede['PuntajeProm'] >= 45]
+        total_excelencia = len(df_excelencia)
+        
+        if total_excelencia > 0:
+            # Calculamos el porcentaje frente al total de postulantes de la sede
+            total_evaluados_prom = len(df_sede['PuntajeProm'].dropna())
+            porcentaje_exc = (total_excelencia / total_evaluados_prom) * 100 if total_evaluados_prom > 0 else 0
+            
+            # Contamos por carrera
+            conteo_excelencia = df_excelencia['Carrera_T'].value_counts()
+            lista_exc = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_excelencia.items()]
+            texto_exc = ", ".join(lista_exc)
+            
+            # Mostramos la cantidad y el porcentaje juntos
+            st.success(f"Se identificaron **{total_excelencia}** clase(s) (**{porcentaje_exc:.1f}%** del total) con calificación de excelencia (45 puntos o más sobre 50). Estos talentos destacados pertenecen a las áreas de: **{texto_exc}**.")
+        else:
+            st.write("- *En esta sede no se registraron clases participativas con nivel de excelencia (45 pts o más).*")
