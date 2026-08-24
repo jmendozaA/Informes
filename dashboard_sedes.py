@@ -95,28 +95,62 @@ st.markdown("<br><hr>", unsafe_allow_html=True) # Salto de línea extra y separa
 
 # 1. Distribución total de las transacciones por sede
 st.header("1. Distribución Total de Clases participativas por Sede")
+
+# Agrupar los datos
 sede_counts = df['Sede'].value_counts().reset_index()
 sede_counts.columns = ['Sede', 'Cantidad']
+
+# --- NUEVO: Calcular porcentajes y etiquetas ---
+# Calculamos el total general sumando todas las cantidades
+total_general = sede_counts['Cantidad'].sum()
+
+# Calculamos el porcentaje matemático
+sede_counts['Porcentaje'] = (sede_counts['Cantidad'] / total_general) * 100
+
+# Creamos una columna de texto uniendo la cantidad y el porcentaje formateado a 1 decimal
+sede_counts['Etiqueta'] = sede_counts.apply(lambda x: f"{x['Cantidad']} ({x['Porcentaje']:.1f}%)", axis=1)
+# -----------------------------------------------
+
+# Crear el gráfico
 fig_total_sede = px.bar(
     sede_counts, 
     x='Sede', 
     y='Cantidad', 
     color='Sede', 
-    text_auto=True,
+    text='Etiqueta', # Usamos nuestra nueva columna en lugar de text_auto=True
     color_discrete_sequence=px.colors.qualitative.Pastel
 )
 
+# Forzar a que el texto se adapte bien dentro o fuera de la barra
+fig_total_sede.update_traces(textposition='auto', textfont_size=13)
+
+# Mejorar el diseño del layout
 fig_total_sede.update_layout(
     title={
         'text': "TOTAL DE CLASES PARTICIPATIVAS POR SEDE",
-        'x': 0.5,           # Posición horizontal (50%)
-        'xanchor': 'center' # El centro del texto se alinea con la posición x
-    }
+        'x': 0.5,           
+        'xanchor': 'center' 
+    },
+    yaxis_title="Cantidad de Clases",
+    xaxis_title="Sede",
+    showlegend=False # Ocultar leyenda (opcional, limpia el gráfico ya que el eje X tiene los nombres)
 )
+
 st.plotly_chart(fig_total_sede, use_container_width=True)
 
+# 1.1 Expander de interpretación general
 with st.expander("💡 Interpretación"):
-    st.info(f"Este gráfico muestra el volumen total de las clases participativas a nivel nacional. La sede con mayor participación en general es **{df['Sede'].mode()[0]}** con **{sede_counts['Cantidad'].max()}** clases registradas.")
+    # Extraemos los datos de la sede principal (la primera fila, índice 0)
+    sede_mayor_nombre = sede_counts.iloc[0]['Sede']
+    sede_mayor_cantidad = sede_counts.iloc[0]['Cantidad']
+    sede_mayor_porcentaje = sede_counts.iloc[0]['Porcentaje']
+    
+    st.info(
+        f"Este gráfico muestra el volumen total a nivel nacional. "
+        f"La sede con mayor participación en general es **{sede_mayor_nombre}** con "
+        f"**{sede_mayor_cantidad}** clases registradas, lo que representa el "
+        f"**{sede_mayor_porcentaje:.1f}%** del esfuerzo total de evaluación."
+    )
 
 st.markdown("---")
 
@@ -314,6 +348,35 @@ with col2:
     fig_carreras.update_layout(yaxis={'categoryorder':'total ascending'})
     # Gráfico de barras horizontales es el mejor para nombres largos de categorías (carreras)
     st.plotly_chart(fig_carreras, use_container_width=True)
+
+    # 5. Expander de interpretación para Carreras (Acumulado 80%)
+    with st.expander("💡 Interpretación"):
+        # Asegurarnos de que los datos estén ordenados de mayor a menor
+        carrera_counts = carrera_counts.sort_values('Cantidad', ascending=False)
+        
+        # Calcular el total de la sede y los porcentajes individuales
+        total_clases_sede = carrera_counts['Cantidad'].sum()
+        carrera_counts['Porcentaje'] = (carrera_counts['Cantidad'] / total_clases_sede) * 100
+        
+        # Calcular el porcentaje acumulado progresivo
+        carrera_counts['Acumulado'] = carrera_counts['Porcentaje'].cumsum()
+        
+        # Redactamos el párrafo inicial
+        st.write(f"En la sede **{sede_seleccionada}**, alrededor del 80% del esfuerzo de evaluación se concentró en el siguiente grupo principal de carreras:")
+        
+        # Recorremos la tabla para imprimir la lista
+        for index, row in carrera_counts.iterrows():
+            nombre_carrera = row['Carrera']
+            cantidad = row['Cantidad']
+            porcentaje = row['Porcentaje']
+            acumulado = row['Acumulado']
+            
+            # Imprimir la carrera como viñeta
+            st.write(f"- **{nombre_carrera}**: {cantidad} clases ({porcentaje:.1f}%)")
+            
+            # Detener el bucle en cuanto crucemos la barrera del 80%
+            if acumulado >= 80:
+                break
     
     # C. Distribución del puntaje obtenido en PuntajeProm (Histograma)
     fig_prom = px.histogram(
