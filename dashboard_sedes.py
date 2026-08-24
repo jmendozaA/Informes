@@ -115,6 +115,9 @@ fig_total_sede.update_layout(
 )
 st.plotly_chart(fig_total_sede, use_container_width=True)
 
+with st.expander("💡 Interpretación"):
+    st.info(f"Este gráfico muestra el volumen total de las clases participativas a nivel nacional. La sede con mayor participación en general es **{df['Sede'].mode()[0]}** con **{sede_counts['Cantidad'].max()}** clases registradas.")
+
 st.markdown("---")
 
 # 2. Menú desplegable para seleccionar la Sede
@@ -170,29 +173,78 @@ st.markdown("<br>", unsafe_allow_html=True) # Pequeño espacio antes de los grá
 col1, col2 = st.columns(2)
 
 with col1:
-    # A. Distribución de las fechas de visita (Gráfico de líneas/Serie de tiempo)
-    fechas_counts = df_sede['FechaVisita'].dt.date.value_counts().reset_index()
-    fechas_counts.columns = ['Fecha', 'Cantidad']
-    fechas_counts = fechas_counts.sort_values('Fecha')
+
+    # A. Distribución de las fechas de visita (Gráfico de Barras por Mes)
     
-    fig_fechas = px.line(
-        fechas_counts, 
-        x='Fecha', 
-        y='Cantidad', 
-        markers=True,
+    df_sede_mes = df_sede.copy()
+    
+    # 1. Extraer el número del mes (1 a 12)
+    df_sede_mes['Num_Mes'] = df_sede_mes['FechaVisita'].dt.month
+    
+    # 2. Diccionario para traducir el número del mes a texto en español
+    meses_espanol = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    df_sede_mes['Mes_Texto'] = df_sede_mes['Num_Mes'].map(meses_espanol)
+    
+    # 3. Contar la cantidad de registros por mes
+    # Agrupamos también por 'Num_Mes' para poder ordenar cronológicamente
+    mes_counts = df_sede_mes.groupby(['Num_Mes', 'Mes_Texto']).size().reset_index(name='Cantidad')
+    mes_counts = mes_counts.sort_values('Num_Mes') # Ordenar de Enero a Diciembre
+    
+    # 4. Dibujar el gráfico de barras verticales
+    fig_fechas = px.bar(
+        mes_counts, 
+        x='Mes_Texto', 
+        y='Cantidad',
+        text_auto=True, # Muestra el número sobre cada barra
+        color_discrete_sequence=['#F6CF71'] # Un color naranja/dorado para diferenciar
     )
 
     fig_fechas.update_layout(
         title={
-            'text': "DISTRIBUCIÓN DE CLASES PARTICIPATIVAS POR FECHA DE EJECUCIÓN",
-            'x': 0.5,           # Posición horizontal (50%)
-            'xanchor': 'center' # El centro del texto se alinea con la posición x
-        }
+            'text': "DISTRIBUCIÓN DE CLASES PARTICIPATIVAS POR MES",
+            'x': 0.5,           
+            'xanchor': 'center' 
+        },
+        xaxis_title="Mes",
+        yaxis_title="Cantidad de Clases"
     )
 
-    # Se elige gráfico de líneas porque muestra mejor la evolución en el tiempo
     st.plotly_chart(fig_fechas, use_container_width=True)
     
+    # 5. Expander de interpretación (Con desglose de carreras para Agosto)
+    with st.expander("💡 Interpretación"):
+        # 5.1 Encontrar el mes con mayor cantidad
+        mes_mayor = mes_counts.loc[mes_counts['Cantidad'].idxmax()]['Mes_Texto'] if not mes_counts.empty else "N/A"
+        
+        # 5.2 Construir el texto base
+        texto_interpretacion = f"En la sede **{sede_seleccionada}**, el gráfico de barras evidencia la carga mensual de evaluaciones. El mes de **{mes_mayor}** registra la mayor cantidad acumulada de clases participativas del periodo analizado."
+        
+        # 5.3 Lógica condicional para el mes de Agosto
+        if 'Agosto' in mes_counts['Mes_Texto'].values:
+            # Extraemos la cantidad exacta de clases que hubo en Agosto
+            clases_agosto = mes_counts.loc[mes_counts['Mes_Texto'] == 'Agosto', 'Cantidad'].values[0]
+            
+            # --- NUEVO: Extraer carreras de Agosto ---
+            # Filtramos los datos para quedarnos solo con los registros de Agosto
+            df_agosto = df_sede_mes[df_sede_mes['Mes_Texto'] == 'Agosto']
+            
+            # Contamos cuántas clases tuvo cada carrera ese mes
+            carreras_agosto_counts = df_agosto['Carrera_T'].value_counts()
+            
+            # Convertimos esos datos en un texto legible (ej: "Derecho (3), Medicina (1)")
+            lista_carreras = [f"{carrera} ({cantidad})" for carrera, cantidad in carreras_agosto_counts.items()]
+            texto_carreras = ", ".join(lista_carreras)
+            
+            # Añadimos el texto extra y el desglose al párrafo principal
+            texto_interpretacion += f" También se resalta que en el mes de Agosto se tienen **{clases_agosto}** clases, lo que significa que todavía se han desarrollado evaluaciones una vez que han comenzado las clases de la gestión 2026-2. Las carreras que solicitaron estas clases fueron: **{texto_carreras}**."
+        
+        # 5.4 Mostrar el texto final en la pantalla
+        st.write(texto_interpretacion)
+
     # B. Distribución del máximo grado académico (Gráfico de pastel)
     grado_counts = df_sede['Máximo Grado Academico'].value_counts().reset_index()
     grado_counts.columns = ['Grado Académico', 'Cantidad']
@@ -213,7 +265,7 @@ with col1:
     )
 
     # Se elige gráfico de dona (pastel) al ser pocas categorías (proporciones)
-    st.plotly_chart(fig_grado, use_container_width=True)
+    st.plotly_chart(fig_grado, use_container_width=True) 
 
     # E. Distribución de la puntuación total (Histograma)
     fig_total = px.histogram(
