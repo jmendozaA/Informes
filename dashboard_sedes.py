@@ -26,6 +26,73 @@ except Exception as e:
     st.error(f"Error al cargar el archivo 'Tabla_BD_v01.xlsx'. Asegúrese de que el archivo esté en la misma carpeta que este script. Detalle: {e}")
     st.stop()
 
+# --- INICIO DE TARJETAS DE MÉTRICAS (KPIs) ---
+st.markdown("### Resumen General del Proceso")
+
+# 1. Cálculos matemáticos usando pandas
+total_clases = len(df)
+promedio_puntaje_total = round(df['Puntuacion Total'].mean(), 2)
+promedio_clases_participativas = round(df['PuntajeProm'].mean(), 2)
+
+# 2. Creación de 3 columnas
+kpi1, kpi2, kpi3 = st.columns(3)
+
+# 3. Definimos un estilo CSS común para las tarjetas
+tarjeta_css = """
+    <style>
+    div[data-testid="stMarkdownContainer"] .tarjeta-kpi {
+        background-color: #f8f9fa; /* Color de fondo claro */
+        border: 1px solid #dee2e6; /* Borde sutil */
+        border-radius: 10px;       /* Bordes curvos */
+        padding: 20px;             /* Espacio interno */
+        text-align: center;        /* Texto centrado */
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05); /* Sombra ligera 3D */
+    }
+    .kpi-titulo {
+        color: #6c757d;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+    .kpi-valor {
+        color: #1f77b4; /* Color azul para destacar el número */
+        font-size: 32px;
+        font-weight: bold;
+    }
+    </style>
+"""
+
+# Inyectamos el CSS en la página
+st.markdown(tarjeta_css, unsafe_allow_html=True)
+
+# 4. Asignación de los valores usando HTML (Ahora invertidos)
+with kpi1:
+    st.markdown(f"""
+        <div class="tarjeta-kpi">
+            <div class="kpi-titulo">Total Clases Evaluadas</div>
+            <div class="kpi-valor">{total_clases}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with kpi2:
+    st.markdown(f"""
+        <div class="tarjeta-kpi">
+            <div class="kpi-titulo">Puntaje Promedio Clases Participativas</div>
+            <div class="kpi-valor">{promedio_clases_participativas} pts</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with kpi3:
+    st.markdown(f"""
+        <div class="tarjeta-kpi">
+            <div class="kpi-titulo">Puntaje Total Promedio</div>
+            <div class="kpi-valor">{promedio_puntaje_total} pts</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br><hr>", unsafe_allow_html=True) # Salto de línea extra y separador
+# --- FIN DE TARJETAS DE MÉTRICAS ---
+
+
 # 1. Distribución total de las transacciones por sede
 st.header("1. Distribución Total de Clases participativas por Sede")
 sede_counts = df['Sede'].value_counts().reset_index()
@@ -58,7 +125,46 @@ sede_seleccionada = st.selectbox("Seleccione una Sede para ver sus gráficos esp
 # Filtrar el dataframe por la sede seleccionada
 df_sede = df[df['Sede'] == sede_seleccionada]
 
-st.subheader(f"Resultados para la sede: {sede_seleccionada} (Total: {len(df_sede)} registros)")
+st.subheader(f"Resultados para la sede: {sede_seleccionada}")
+
+# --- INICIO DE KPIs ESPECÍFICOS POR SEDE ---
+# 1. Cálculos matemáticos usando df_sede (datos filtrados)
+total_clases_sede = len(df_sede)
+promedio_clases_participativas_sede = round(df_sede['PuntajeProm'].mean(), 2)
+promedio_puntaje_total_sede = round(df_sede['Puntuacion Total'].mean(), 2)
+
+# 2. Creación de 3 columnas para los KPIs de la sede
+kpi_sede1, kpi_sede2, kpi_sede3 = st.columns(3)
+
+# (Nota: No es necesario volver a definir el CSS porque ya está inyectado arriba)
+
+# 3. Asignación de los valores de la sede usando HTML
+with kpi_sede1:
+    st.markdown(f"""
+        <div class="tarjeta-kpi">
+            <div class="kpi-titulo">Total Clases (Sede)</div>
+            <div class="kpi-valor">{total_clases_sede}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with kpi_sede2:
+    st.markdown(f"""
+        <div class="tarjeta-kpi">
+            <div class="kpi-titulo">Promedio Clases Part. (Sede)</div>
+            <div class="kpi-valor">{promedio_clases_participativas_sede} pts</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with kpi_sede3:
+    st.markdown(f"""
+        <div class="tarjeta-kpi">
+            <div class="kpi-titulo">Puntaje Total Promedio (Sede)</div>
+            <div class="kpi-valor">{promedio_puntaje_total_sede} pts</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True) # Pequeño espacio antes de los gráficos
+# --- FIN DE KPIs ESPECÍFICOS POR SEDE ---
 
 # Crear dos columnas para mostrar los gráficos de forma organizada
 col1, col2 = st.columns(2)
