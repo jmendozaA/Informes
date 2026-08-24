@@ -5,8 +5,8 @@ import plotly.express as px
 # Configuración de la página
 st.set_page_config(page_title="Reporte de Sedes", layout="wide")
 
-st.title("📊 Reporte Interactivo de Transacciones por Sede")
-st.markdown("Este dashboard interactivo permite visualizar la distribución de datos de la base de datos.")
+st.title("📊 Reporte del proceso de Admisión Docente 2026")
+st.markdown("El presente reporte muestra los datos del proceso de admisión de cuanto a las clases participativas desarrolladas y monitoreadas en la gestión 2026-2")
 
 # Función para cargar y preparar los datos
 @st.cache_data
@@ -27,7 +27,7 @@ except Exception as e:
     st.stop()
 
 # 1. Distribución total de las transacciones por sede
-st.header("1. Distribución Total de Transacciones por Sede")
+st.header("1. Distribución Total de Clases participativas por Sede")
 sede_counts = df['Sede'].value_counts().reset_index()
 sede_counts.columns = ['Sede', 'Cantidad']
 fig_total_sede = px.bar(
@@ -35,9 +35,16 @@ fig_total_sede = px.bar(
     x='Sede', 
     y='Cantidad', 
     color='Sede', 
-    title="Total de transacciones por Sede",
     text_auto=True,
     color_discrete_sequence=px.colors.qualitative.Pastel
+)
+
+fig_total_sede.update_layout(
+    title={
+        'text': "TOTAL DE CLASES PARTICIPATIVAS POR SEDE",
+        'x': 0.5,           # Posición horizontal (50%)
+        'xanchor': 'center' # El centro del texto se alinea con la posición x
+    }
 )
 st.plotly_chart(fig_total_sede, use_container_width=True)
 
@@ -67,8 +74,16 @@ with col1:
         x='Fecha', 
         y='Cantidad', 
         markers=True,
-        title="Distribución de Fechas de Visita"
     )
+
+    fig_fechas.update_layout(
+        title={
+            'text': "DISTRIBUCIÓN DE CLASES PARTICIPATIVAS POR FECHA DE EJECUCIÓN",
+            'x': 0.5,           # Posición horizontal (50%)
+            'xanchor': 'center' # El centro del texto se alinea con la posición x
+        }
+    )
+
     # Se elige gráfico de líneas porque muestra mejor la evolución en el tiempo
     st.plotly_chart(fig_fechas, use_container_width=True)
     
@@ -79,24 +94,42 @@ with col1:
         grado_counts, 
         names='Grado Académico', 
         values='Cantidad', 
-        title="Distribución del Máximo Grado Académico", 
         hole=0.4,
         color_discrete_sequence=px.colors.qualitative.Set3
     )
+
+    fig_grado.update_layout(
+        title={
+            'text': "DISTRIBUCIÓN DE ACUERDO AL GRADO ACADÉMICO",
+            'x': 0.5,           # Posición horizontal (50%)
+            'xanchor': 'center' # El centro del texto se alinea con la posición x
+        }
+    )
+
     # Se elige gráfico de dona (pastel) al ser pocas categorías (proporciones)
     st.plotly_chart(fig_grado, use_container_width=True)
-    
-    # C. Distribución del puntaje obtenido en PuntajeProm (Histograma)
-    fig_prom = px.histogram(
+
+    # E. Distribución de la puntuación total (Histograma)
+    fig_total = px.histogram(
         df_sede, 
-        x='PuntajeProm', 
+        x='Puntuacion Total', 
         nbins=15, 
-        title="Distribución de Puntaje Promedio",
-        marginal="box", # Añade un boxplot en la parte superior para ver atípicos
-        color_discrete_sequence=['#3366CC']
+        title="Distribución de Puntuación Total",
+        marginal="box", 
+        color_discrete_sequence=['#109618']
     )
-    # Histograma es ideal para ver la distribución de frecuencias de variables continuas
-    st.plotly_chart(fig_prom, use_container_width=True)
+
+    fig_total.update_layout(
+        title={
+            'text': "DISTRIBUCIÓN DE LA PUNTUACIÓN TOTAL",
+            'x': 0.5,           # Posición horizontal (50%)
+            'xanchor': 'center' # El centro del texto se alinea con la posición x
+        }
+    )
+
+    # Al igual que PuntajeProm, el histograma muestra la concentración de calificaciones
+    st.plotly_chart(fig_total, use_container_width=True)
+    
 
 with col2:
     # D. Distribución de las carreras (Gráfico de barras horizontales)
@@ -111,18 +144,35 @@ with col2:
         color='Cantidad',
         color_continuous_scale='Blues'
     )
+
+    fig_carreras.update_layout(
+        title={
+            'text': "DISTRIBUCIÓN DE EJECUCIÓN POR CARRERA",
+            'x': 0.5,           # Posición horizontal (50%)
+            'xanchor': 'center' # El centro del texto se alinea con la posición x
+        }
+    )
+
     fig_carreras.update_layout(yaxis={'categoryorder':'total ascending'})
     # Gráfico de barras horizontales es el mejor para nombres largos de categorías (carreras)
     st.plotly_chart(fig_carreras, use_container_width=True)
     
-    # E. Distribución de la puntuación total (Histograma)
-    fig_total = px.histogram(
+    # C. Distribución del puntaje obtenido en PuntajeProm (Histograma)
+    fig_prom = px.histogram(
         df_sede, 
-        x='Puntuacion Total', 
+        x='PuntajeProm', 
         nbins=15, 
-        title="Distribución de Puntuación Total",
-        marginal="box", 
-        color_discrete_sequence=['#109618']
+        marginal="box", # Añade un boxplot en la parte superior para ver atípicos
+        color_discrete_sequence=['#3366CC']
     )
-    # Al igual que PuntajeProm, el histograma muestra la concentración de calificaciones
-    st.plotly_chart(fig_total, use_container_width=True)
+
+    fig_prom.update_layout(
+        title={
+            'text': "DISTRIBUCIÓN DEL PUNTAJE OBTENIDO EN LAS CLASES PARTICIPATIVAS",
+            'x': 0.5,           # Posición horizontal (50%)
+            'xanchor': 'center' # El centro del texto se alinea con la posición x
+        }
+    )
+
+    # Se elige gráfico de dona (pastel) al ser pocas categorías (proporciones)
+    st.plotly_chart(fig_prom, use_container_width=True)
