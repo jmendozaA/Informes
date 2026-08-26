@@ -83,7 +83,7 @@ tarjeta_css = f"""
     }}
     .kpi-titulo {{
         color: {COLOR_PLOMO_OSCURO}; /* Título en plomo oscuro */
-        font-size: 16px;
+        font-size: 12px;
         margin-bottom: 10px;
     }}
     .kpi-valor {{
@@ -109,7 +109,7 @@ with kpi1:
 with kpi2:
     st.markdown(f"""
         <div class="tarjeta-kpi">
-            <div class="kpi-titulo">Puntaje Clases Participativas</div>
+            <div class="kpi-titulo">Puntaje promedio de Clases Participativas</div>
             <div class="kpi-valor">{promedio_clases_participativas} pts</div>
         </div>
     """, unsafe_allow_html=True)
@@ -117,7 +117,7 @@ with kpi2:
 with kpi3:
     st.markdown(f"""
         <div class="tarjeta-kpi">
-            <div class="kpi-titulo">Puntaje Total Promedio</div>
+            <div class="kpi-titulo">Puntaje promedio Final</div>
             <div class="kpi-valor">{promedio_puntaje_total} pts</div>
         </div>
     """, unsafe_allow_html=True)
@@ -204,7 +204,7 @@ kpi_sede1, kpi_sede2, kpi_sede3 = st.columns(3)
 with kpi_sede1:
     st.markdown(f"""
         <div class="tarjeta-kpi">
-            <div class="kpi-titulo">Total Clases (Sede)</div>
+            <div class="kpi-titulo">Total Clases Participativas</div>
             <div class="kpi-valor">{total_clases_sede}</div>
         </div>
     """, unsafe_allow_html=True)
@@ -212,7 +212,7 @@ with kpi_sede1:
 with kpi_sede2:
     st.markdown(f"""
         <div class="tarjeta-kpi">
-            <div class="kpi-titulo">Promedio Clases Part. (Sede)</div>
+            <div class="kpi-titulo">Puntaje promedio de Clases Participativas</div>
             <div class="kpi-valor">{promedio_clases_participativas_sede} pts</div>
         </div>
     """, unsafe_allow_html=True)
@@ -220,7 +220,7 @@ with kpi_sede2:
 with kpi_sede3:
     st.markdown(f"""
         <div class="tarjeta-kpi">
-            <div class="kpi-titulo">Puntaje Total Promedio (Sede)</div>
+            <div class="kpi-titulo">Puntaje promedio Final</div>
             <div class="kpi-valor">{promedio_puntaje_total_sede} pts</div>
         </div>
     """, unsafe_allow_html=True)
@@ -352,26 +352,40 @@ with col1:
         df_reprobados = df_sede[df_sede['Puntuacion Total'] < nota_aprobacion]
         total_reprobados = len(df_reprobados)
         
+        # --- NUEVO: Cálculo del total de evaluados y porcentaje ---
+        total_evaluados = len(df_sede['Puntuacion Total'].dropna()) 
+        
         if total_reprobados > 0:
+            porcentaje_reprobados = (total_reprobados / total_evaluados) * 100 if total_evaluados > 0 else 0
+            
             conteo_carreras_reprobados = df_reprobados['Carrera_T'].value_counts()
             lista_rep = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_carreras_reprobados.items()]
             texto_reprobados = ", ".join(lista_rep)
             
-            st.warning(f"Se identificaron **{total_reprobados}** postulante(s) que no alcanzaron la nota mínima de aprobación. Pertenecen a las siguientes carreras: **{texto_reprobados}**.")
+            # --- MODIFICADO: Agregamos el porcentaje al texto de st.warning ---
+            st.warning(f"Se identificaron **{total_reprobados}** postulante(s) (**{porcentaje_reprobados:.1f}%** del total) que no alcanzaron la nota mínima de aprobación. Pertenecen a las siguientes carreras: **{texto_reprobados}**.")
         else:
             st.success("✔️ En esta sede, no existen postulantes reprobados bajo la puntuación total (todos obtuvieron 60 pts o más).")
             
         st.markdown("📊 **Concentración Principal de Calificaciones:**")
         if len(df_sede['Puntuacion Total'].dropna()) > 1:
+            # --- NUEVO: Calculamos el total de evaluados válidos para el porcentaje ---
+            total_evaluados = len(df_sede['Puntuacion Total'].dropna())
+            
             rangos = pd.cut(df_sede['Puntuacion Total'], bins=10)
             rango_moda = rangos.mode()[0]
             df_rango_frecuente = df_sede[df_sede['Puntuacion Total'].between(rango_moda.left, rango_moda.right)]
+            
             total_en_rango = len(df_rango_frecuente)
+            # --- NUEVO: Cálculo del porcentaje del rango modal ---
+            porcentaje_rango = (total_en_rango / total_evaluados) * 100
+            
             conteo_carreras_rango = df_rango_frecuente['Carrera_T'].value_counts()
             lista_ran = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_carreras_rango.items()]
             texto_rango = ", ".join(lista_ran)
             
-            st.info(f"La mayor concentración de calificaciones agrupa a **{total_en_rango} postulantes**, quienes obtuvieron notas que oscilan entre **{rango_moda.left:.1f} y {rango_moda.right:.1f} pts**. Las áreas que lograron ubicarse en esta franja mayoritaria son: **{texto_rango}**.")
+            # --- MODIFICADO: Agregamos el porcentaje al texto de st.info ---
+            st.info(f"La mayor concentración de calificaciones agrupa a **{total_en_rango} postulantes** (**{porcentaje_rango:.1f}%** del total), quienes obtuvieron notas que oscilan entre **{rango_moda.left:.1f} y {rango_moda.right:.1f} pts**. Las áreas que lograron ubicarse en esta franja mayoritaria son: **{texto_rango}**.")
         else:
             st.write("No hay datos suficientes para calcular rangos de frecuencia.")
 
@@ -494,15 +508,23 @@ with col2:
         
         st.markdown("📊 **Tendencia General del Desempeño:**")
         if len(df_sede['PuntajeProm'].dropna()) > 1:
+            # --- NUEVO: Calculamos el total de evaluados válidos para el porcentaje ---
+            total_evaluados_prom = len(df_sede['PuntajeProm'].dropna())
+            
             rangos_prom = pd.cut(df_sede['PuntajeProm'], bins=10)
             rango_moda_prom = rangos_prom.mode()[0]
             df_rango_prom = df_sede[df_sede['PuntajeProm'].between(rango_moda_prom.left, rango_moda_prom.right)]
+            
             total_rango_prom = len(df_rango_prom)
+            # --- NUEVO: Cálculo del porcentaje del rango modal ---
+            porcentaje_rango_prom = (total_rango_prom / total_evaluados_prom) * 100
+            
             conteo_carreras_prom = df_rango_prom['Carrera_T'].value_counts().head(5)
             lista_ran_prom = [f"{carrera} ({cantidad})" for carrera, cantidad in conteo_carreras_prom.items()]
             texto_rango_prom = ", ".join(lista_ran_prom)
             
-            st.info(f"El grueso de los postulantes (**{total_rango_prom}** en total) demostró un nivel pedagógico que se agrupa entre los **{rango_moda_prom.left:.1f} y {rango_moda_prom.right:.1f} pts**. Las carreras más representativas con este nivel promedio son: **{texto_rango_prom}**.")
+            # --- MODIFICADO: Agregamos el porcentaje al texto de st.info ---
+            st.info(f"El grueso de los postulantes (**{total_rango_prom}** en total, que representa el **{porcentaje_rango_prom:.1f}%**) demostró un nivel pedagógico que se agrupa entre los **{rango_moda_prom.left:.1f} y {rango_moda_prom.right:.1f} pts**. Las carreras más representativas con este nivel promedio son: **{texto_rango_prom}**.")
         
         st.markdown("🌟 **Desempeño Sobresaliente (45 pts o más):**")
         df_excelencia = df_sede[df_sede['PuntajeProm'] >= 45]
